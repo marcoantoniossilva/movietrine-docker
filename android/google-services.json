@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "991994455550",
+    "project_id": "movietrine",
+    "storage_bucket": "movietrine.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:991994455550:android:06942c51ab395b41960caf",
+        "android_client_info": {
+          "package_name": "com.movietrine"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "991994455550-jr0ki82e7i4lsra24re6vih365hdrbee.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.movietrine",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "991994455550-o0dibd786qeqd074lh13hdg2mqpq4ns8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDIb2waZwNz1Nl-RrT79Uro3qwiRbB38gQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "991994455550-o0dibd786qeqd074lh13hdg2mqpq4ns8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

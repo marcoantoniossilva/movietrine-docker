@@ -1,0 +1,28 @@
+{
+    "services": [
+        {
+            "_id": 1, 
+            "name": "Netflix"
+        },
+        {
+            "_id": 2, 
+            "name": "GloboPlay"
+        },
+        {
+            "_id": 3, 
+            "name": "Prime Vídeo"
+    },
+        {
+            "_id": 4, 
+            "name": "Disney Plus"
+        },
+        {
+            "_id": 5, 
+            "name": "HBO GO"
+    },
+        {
+            "_id": 6, 
+            "name": "Telecine"
+        }        
+    ]
+}
