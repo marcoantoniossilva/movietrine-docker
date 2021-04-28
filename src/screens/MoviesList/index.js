@@ -1,17 +1,26 @@
 import React from 'react';
 
 import {View, FlatList} from 'react-native';
-import {Header} from 'react-native-elements';
+import {Header, Button} from 'react-native-elements';
 
-import staticsMovies from '../../assets/dictionary/movies.json';
 import MovieCard from '../../components/MovieCard';
 import Icon from 'react-native-vector-icons/AntDesign';
 
-import {EntryNameMovie, CenteredOnTheSameLine} from '../../assets/styles';
+import {
+  EntryNameMovie,
+  CenteredOnTheSameLine,
+  MessageContainer,
+  Message,
+  VerticalSpacer,
+} from '../../assets/styles';
 import Menu from '../../components/Menu';
 import {DrawerLayout} from 'react-native-gesture-handler';
-
-const MOVIES_PER_PAGE = 4;
+import {
+  getMovies,
+  getMoviesByName,
+  getMoviesByService,
+  moviesAlive,
+} from '../../api';
 
 export default class MoviesList extends React.Component {
   constructor(props) {
@@ -20,9 +29,10 @@ export default class MoviesList extends React.Component {
     this.filterByService = this.filterByService.bind(this);
 
     this.state = {
-      nextPage: 0,
+      nextPage: 1,
       moviesList: [],
 
+      allowShowFeeds: true,
       serviceSelected: null,
       loading: false,
       refreshing: false,
@@ -30,53 +40,73 @@ export default class MoviesList extends React.Component {
   }
 
   showMovies = () => {
-    const {nextPage, moviesList, movieName, serviceSelected} = this.state;
+    const {nextPage, movieName, serviceSelected} = this.state;
 
     this.setState({
       loading: true,
     });
-    if (serviceSelected) {
-      const moreMovies = staticsMovies.movies.filter(
-        moviesList => moviesList.service_id == serviceSelected._id,
-      );
 
-      this.setState({
-        moviesList: moreMovies,
-        refreshing: false,
-        loading: false,
+    moviesAlive()
+      .then(result => {
+        if (result.alive === 'yes') {
+          this.setState(
+            {
+              allowShowFeeds: true,
+            },
+            () => {
+              if (serviceSelected) {
+                getMoviesByService(serviceSelected._id, nextPage)
+                  .then(moreMovies => {
+                    this.appendMoreMovies(moreMovies);
+                  })
+                  .catch(error => {
+                    console.error('Erro ao carregar filmes: ' + error);
+                  });
+              } else if (movieName) {
+                getMoviesByName(movieName, nextPage)
+                  .then(moreMovies => {
+                    this.appendMoreMovies(moreMovies);
+                  })
+                  .catch(error => {
+                    console.error('Erro ao carregar filmes: ' + error);
+                  });
+              } else {
+                getMovies(nextPage)
+                  .then(response => {
+                    this.appendMoreMovies(response);
+                  })
+                  .catch(error => {
+                    console.error('Erro ao carregar filmes: ' + error);
+                  });
+              }
+            },
+          );
+        } else {
+          this.setState({
+            allowShowFeeds: false,
+          });
+        }
+      })
+      .catch(error => {
+        console.error(
+          'Erro ao verificar a disponibilidade do serviço: ' + error,
+        );
       });
-    } else if (movieName) {
-      const moreMovies = staticsMovies.movies.filter(moviesList =>
-        moviesList.movie.name.toLowerCase().includes(movieName.toLowerCase()),
-      );
+  };
 
+  appendMoreMovies = moreMovies => {
+    const {nextPage, moviesList} = this.state;
+
+    if (moreMovies.length) {
       this.setState({
-        moviesList: moreMovies,
-        refreshing: false,
-        loading: false,
+        nextPage: nextPage + 1,
+        moviesList: [...moviesList, ...moreMovies],
       });
-    } else {
-      const initialId = nextPage * MOVIES_PER_PAGE + 1;
-      const finalId = initialId + MOVIES_PER_PAGE - 1;
-      const moreMovies = staticsMovies.movies.filter(
-        moviesList => moviesList._id >= initialId && moviesList._id <= finalId,
-      );
-      if (moreMovies.length) {
-        this.setState({
-          nextPage: nextPage + 1,
-          moviesList: [...moviesList, ...moreMovies],
-          loading: false,
-          refreshing: false,
-          movieName: null,
-          serviceSelected: null,
-        });
-      } else {
-        this.setState({
-          loading: false,
-          refreshing: false,
-        });
-      }
     }
+    this.setState({
+      loading: false,
+      refreshing: false,
+    });
   };
 
   componentDidMount = () => {
@@ -88,7 +118,6 @@ export default class MoviesList extends React.Component {
     if (loading) {
       return;
     }
-
     this.showMovies();
   };
 
@@ -97,18 +126,22 @@ export default class MoviesList extends React.Component {
       {
         refreshing: true,
         moviesList: [],
-        nextPage: 0,
+        nextPage: 1,
         movieName: null,
         serviceSelected: null,
       },
-      () => {
-        this.showMovies();
-      },
+      () => this.showMovies(),
     );
   };
 
   showMovie = movie => {
-    return <MovieCard movieToShow={movie} navigator={this.props.navigation} />;
+    return (
+      <MovieCard
+        movieToShow={movie}
+        navigator={this.props.navigation}
+        refreshFunction={this.update}
+      />
+    );
   };
 
   updateMovieName = name => {
@@ -133,7 +166,15 @@ export default class MoviesList extends React.Component {
           name="search1"
           color={'#aaa'}
           onPress={() => {
-            this.showMovies();
+            this.setState(
+              {
+                nextPage: 1,
+                moviesList: [],
+              },
+              () => {
+                this.showMovies();
+              },
+            );
           }}></Icon>
       </CenteredOnTheSameLine>
     );
@@ -151,6 +192,8 @@ export default class MoviesList extends React.Component {
     this.setState(
       {
         serviceSelected: service,
+        nextPage: 1,
+        moviesList: [],
       },
       () => {
         this.showMovies();
@@ -203,13 +246,43 @@ export default class MoviesList extends React.Component {
     );
   };
 
+  showRefreshButton = () => {
+    return (
+      <MessageContainer>
+        <Message> O serviço de filmes não está funcionando :(</Message>
+        <Message> Tente novamente mais tarde</Message>
+        <VerticalSpacer />
+        <Button
+          title={'  Tentar agora'}
+          icon={<Icon name={'reload1'} size={22} color={'#fff'} />}
+          type={'solid'}
+          buttonStyle={{backgroundColor: '#404254'}}
+          onPress={() => {
+            this.showMovies();
+          }}
+        />
+      </MessageContainer>
+    );
+  };
+
+  showLoadingMessage = () => {
+    return (
+      <MessageContainer>
+        <Message> Carregando filmes, aguarde...</Message>
+      </MessageContainer>
+    );
+  };
+
   render = () => {
-    const {moviesList} = this.state;
+    const {moviesList, allowShowFeeds} = this.state;
+
+    if (!allowShowFeeds) {
+      return this.showRefreshButton();
+    }
 
     if (moviesList.length) {
       return this.showMovieList(moviesList);
-    } else {
-      return null;
     }
+    return this.showLoadingMessage();
   };
 }

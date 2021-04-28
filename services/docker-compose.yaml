@@ -1,0 +1,66 @@
+version: '3'
+services:
+  movies:
+    image: movietrine
+    build: ./dockerfiles/services/
+    hostname: movies
+    expose:
+      - '5000'
+    volumes:
+      - './movies:/service'
+    command: python3 service.py
+    ports:
+      - '5000:5000'
+  streaming_services:
+    image: movietrine
+    build: ./dockerfiles/services/
+    hostname: streaming_services
+    expose:
+      - '5001'
+    ports:
+    volumes:
+      - './streaming_services:/service'
+    command: python3 service.py
+    ports:
+      - '5001:5001'
+  comments:
+    image: movietrine
+    build: ./dockerfiles/services/
+    hostname: comments
+    expose:
+      - '5002'
+    volumes:
+      - './comments:/service'
+    command: python3 service.py
+    ports:
+      - '5002:5002'
+  likes:
+    image: movietrine
+    build: ./dockerfiles/services/
+    hostname: likes
+    expose:
+      - '5003'
+    volumes:
+      - './likes:/service'
+    command: python3 service.py
+    ports:
+      - '5003:5003'
+  databases:
+    image: mysql
+    hostname: databases
+    expose:
+      - '3306'
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+    ports:
+      - '3306:3306'
+  files:
+    image: files
+    build: ./dockerfiles/nginx/
+    volumes:
+      - './assets/images:/usr/share/nginx/html'
+    hostname: files
+    expose:
+      - '80'
+    ports:
+      - '80:80'

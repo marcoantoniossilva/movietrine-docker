@@ -1,10 +1,10 @@
 import React from 'react';
 import {TouchableOpacity, ScrollView} from 'react-native-gesture-handler';
-import staticServices from '../../assets/dictionary/services.json';
 import {SafeAreaInsetsContext} from 'react-native-safe-area-context';
 import {LoginOptionsMenu} from '../../components/Login';
 import Toast from 'react-native-simple-toast';
 import SyncStorage from 'sync-storage';
+import {getServices, getImageService, servicesAlive} from '../../api';
 
 import {
   Avatar,
@@ -14,8 +14,6 @@ import {
   LeftOfTheSameLine,
 } from '../../assets/styles';
 
-import {imageList} from '../../assets/imgs/imageList';
-
 export default class Menu extends React.Component {
   constructor(props) {
     super(props);
@@ -24,10 +22,24 @@ export default class Menu extends React.Component {
       refresh: true,
       filter: props.filter,
       closeFunction: props.closeFunction,
+
+      services: [],
     };
 
     this.user;
   }
+
+  componentDidMount = () => {
+    getServices()
+      .then(moreServices => {
+        this.setState({
+          services: moreServices,
+        });
+      })
+      .catch(error => {
+        console.error('Ocorreu um erro ao criar o menu de serviços: ' + error);
+      });
+  };
 
   showService = service => {
     const {filter} = this.state;
@@ -40,7 +52,7 @@ export default class Menu extends React.Component {
         }}>
         <MenuDivider />
         <LeftOfTheSameLine>
-          <Avatar source={imageList[`service_${service._id}`]} />
+          <Avatar source={getImageService(service.avatar)} />
           <ServiceName>{service.name}</ServiceName>
         </LeftOfTheSameLine>
       </TouchableOpacity>
@@ -87,7 +99,7 @@ export default class Menu extends React.Component {
   };
 
   render = () => {
-    const services = staticServices.services;
+    const {services} = this.state;
 
     return (
       <SafeAreaInsetsContext.Consumer>

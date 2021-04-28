@@ -49,12 +49,16 @@ export const Likes = styled.Text`
 `;
 
 export const EntryNameMovie = styled.TextInput`
-  height: 40px;
+  padding: 4px 8px;
   flex: 1;
   background-color: #404254;
   border-color: #aaa;
   border-width: 1px;
   border-radius: 8px;
+  color: #eeeeee;
+  font-weight: bold;
+  font-size: 18px;
+  align-items: center;
 `;
 
 export const CenteredOnTheSameLine = styled.View`
@@ -79,6 +83,7 @@ export const JustifiedAlignment = styled.Text`
 
 export const MenuContainer = styled.View`
   flex: 1px;
+  padding: 4px;
   font-size: 18px;
   background-color: #333444;
 `;
@@ -161,4 +166,15 @@ export const OtherUserCommentContainer = styled.View`
 
 export const CommentSpacer = styled.View`
   margin-vertical: 10px;
+`;
+
+export const MessageContainer = styled.View`
+  height: 100%;
+  justify-content: center;
+  align-items: center;
+  background-color: #333444;
+`;
+
+export const Message = styled.Text`
+  color: #fff;
 `;

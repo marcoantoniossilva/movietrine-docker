@@ -1,14 +1,21 @@
 import React from 'react';
 import {View, Text, Modal, TextInput, Alert} from 'react-native';
-import {FlatList, ScrollView} from 'react-native-gesture-handler';
+import {FlatList} from 'react-native-gesture-handler';
 import SyncStorage from 'sync-storage';
 import Swipeable from 'react-native-swipeable-row';
 import {Header, Button} from 'react-native-elements';
 import Icon from 'react-native-vector-icons/AntDesign';
 import Moment from 'react-moment';
 import 'moment-timezone';
+import Toast from 'react-native-simple-toast';
 
-const COMMENTS_PER_PAGE = 8;
+import {
+  getComments,
+  getAddComment,
+  getRemoveComments,
+  commentsAlive,
+} from '../../api';
+
 const MAX_LENGTH_COMMENT = 100;
 
 import {
@@ -25,9 +32,9 @@ import {
   CommentSpacer,
   CenteredOnTheSameLine,
   VerticalSpacer,
+  Message,
+  MessageContainer,
 } from '../../assets/styles';
-
-import staticComments from '../../assets/dictionary/comments.json';
 
 export default class Comments extends React.Component {
   constructor(props) {
@@ -39,9 +46,10 @@ export default class Comments extends React.Component {
       comments: [],
       refreshing: false,
       loading: false,
-      nextPage: 0,
+      nextPage: 1,
       viewAddVisible: false,
       textNewComment: '',
+      allowComment: true,
     };
   }
 
@@ -52,32 +60,55 @@ export default class Comments extends React.Component {
   loadComments = () => {
     const {nextPage, movieId, comments} = this.state;
 
-    this.setState({
-      loading: true,
-    });
-
-    const initialId = nextPage * COMMENTS_PER_PAGE + 1;
-    const finalId = initialId + COMMENTS_PER_PAGE - 1;
-    const moreComments = staticComments.comments.filter(
-      comment =>
-        comment._id >= initialId &&
-        comment._id <= finalId &&
-        comment.movieId == movieId,
+    this.setState(
+      {
+        loading: true,
+      },
+      () => {},
     );
 
-    if (moreComments.length) {
-      this.setState({
-        nextPage: nextPage + 1,
-        comments: [...comments, ...moreComments],
-        loading: false,
-        refreshing: false,
+    commentsAlive()
+      .then(result => {
+        if (result.alive === 'yes') {
+          this.setState(
+            {
+              allowComment: true,
+            },
+            () => {
+              getComments(movieId, nextPage)
+                .then(moreComments => {
+                  if (moreComments.length) {
+                    this.setState({
+                      nextPage: nextPage + 1,
+                      comments: [...comments, ...moreComments],
+                      loading: false,
+                      refreshing: false,
+                    });
+                  } else {
+                    this.setState({
+                      loading: false,
+                      refreshing: false,
+                    });
+                    Toast.show('Sem comentários para exibir.', Toast.LONG);
+                  }
+                })
+                .catch(error => {
+                  console.error('erro ao recuperar os comentários: ', error);
+                });
+            },
+          );
+        } else {
+          this.setState({
+            allowComment: false,
+          });
+        }
+      })
+      .catch(error => {
+        console.error(
+          'Erro ao verificar a disponibilidade do serviço de comentários: ' +
+            error,
+        );
       });
-    } else {
-      this.setState({
-        loading: false,
-        refreshing: false,
-      });
-    }
   };
 
   confirmDelete = comment => {
@@ -88,19 +119,23 @@ export default class Comments extends React.Component {
   };
 
   removeComment = commentForRemove => {
-    const {comments} = this.state;
-    const filteredComments = comments.filter(comment => {
-      comment._id !== commentForRemove._id;
-    });
-
-    this.setState(
-      {
-        comments: filteredComments,
-      },
-      () => {
-        this.refresh();
-      },
-    );
+    getRemoveComments(commentForRemove._id)
+      .then(result => {
+        if (result.status === 'ok') {
+          this.setState(
+            {
+              nextPage: 1,
+              comments: [],
+            },
+            () => {
+              this.loadComments();
+            },
+          );
+        }
+      })
+      .catch(error => {
+        console.error('erro ao remover o comentário: ' + error);
+      });
   };
 
   showCommentUser = comment => {
@@ -172,7 +207,7 @@ export default class Comments extends React.Component {
       {
         refreshing: true,
         loading: false,
-        nextPage: 0,
+        nextPage: 1,
         comments: [],
       },
       () => {
@@ -182,25 +217,44 @@ export default class Comments extends React.Component {
   };
 
   addComment = () => {
-    const {movieId, comments, textNewComment} = this.state;
+    const {movieId, textNewComment} = this.state;
 
-    const user = SyncStorage.get('user');
-    const comment = [
-      {
-        _id: comments.length + 100,
-        movieId: movieId,
-        user: {
-          userId: 2,
-          email: user.email,
-          name: user.name,
-        },
-        datetime: '2020-03-26T12:00-0500',
-        content: textNewComment,
-      },
-    ];
-    this.setState({
-      comments: [...comment, ...comments],
-    });
+    commentsAlive()
+      .then(result => {
+        if (result.alive === 'yes') {
+          this.setState(
+            {
+              allowComment: true,
+            },
+            () => {
+              getAddComment(movieId, textNewComment)
+                .then(result => {
+                  if (result.status === 'ok') {
+                    this.setState(
+                      {
+                        nextPage: 1,
+                        comments: [],
+                      },
+                      () => {
+                        this.loadComments();
+                      },
+                    );
+                  }
+                })
+                .catch(error => {
+                  console.error('erro ao gravar o comentário: ' + error);
+                });
+            },
+          );
+        } else {
+          this.setState({
+            allowComment: false,
+          });
+        }
+      })
+      .catch(error => {
+        console.error('Erro ao conectar ao serviço de comentários: ' + error);
+      });
 
     this.switchVisibilityViewAdd();
   };
@@ -228,7 +282,8 @@ export default class Comments extends React.Component {
           <TextInput
             multiline
             editable
-            backgroundColor={'#404254'}
+            style={{backgroundColor: '#404254', color: '#eeeeee', fontSize: 18}}
+            placeholderTextColor={'#eeeeee'}
             placeholder={'Digite um comentário'}
             maxLength={MAX_LENGTH_COMMENT}
             onChangeText={text => {
@@ -307,7 +362,7 @@ export default class Comments extends React.Component {
             refreshing={refreshing}
             keyExtractor={item => String(item._id)}
             renderItem={({item}) => {
-              if (item.user.email == user.email) {
+              if (item.user.email == user.account) {
                 return this.showCommentUser(item);
               } else {
                 return this.showCommentOtherUser(item);
@@ -318,18 +373,49 @@ export default class Comments extends React.Component {
     );
   };
 
-  render = () => {
-    const {comments, viewAddVisible} = this.state;
+  showLoadingMessage = () => {
+    return (
+      <MessageContainer>
+        <Message> Carregando comentários, aguarde...</Message>
+      </MessageContainer>
+    );
+  };
 
-    if (comments) {
-      return (
-        <>
-          {this.showComments()}
-          {viewAddVisible && this.showViewNewComment()}
-        </>
-      );
+  showRefreshButton = () => {
+    return (
+      <MessageContainer>
+        <Message> O serviço de comentários não está funcionando :(</Message>
+        <Message> Tente novamente mais tarde</Message>
+        <VerticalSpacer />
+        <Button
+          title={'  Tentar agora'}
+          icon={<Icon name={'reload1'} size={22} color={'#fff'} />}
+          type={'solid'}
+          buttonStyle={{backgroundColor: '#404254'}}
+          onPress={() => {
+            this.loadComments();
+          }}
+        />
+      </MessageContainer>
+    );
+  };
+
+  render = () => {
+    const {comments, viewAddVisible, allowComment} = this.state;
+
+    if (allowComment) {
+      if (comments.length) {
+        return (
+          <>
+            {this.showComments()}
+            {viewAddVisible && this.showViewNewComment()}
+          </>
+        );
+      } else {
+        return this.showLoadingMessage();
+      }
     } else {
-      return null;
+      return this.showRefreshButton();
     }
   };
 }

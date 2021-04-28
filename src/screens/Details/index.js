@@ -9,6 +9,17 @@ import SyncStorage from 'sync-storage';
 import Toast from 'react-native-simple-toast';
 
 import {
+  getMovie,
+  getSlideMovie,
+  getImageService,
+  getUserLiked,
+  getUserLike,
+  getUserUnlike,
+  likesAlive,
+  commentsAlive,
+} from '../../api';
+
+import {
   Avatar,
   MovieNameBar,
   MovieDecription,
@@ -23,9 +34,6 @@ import {
 
 import Sharer from '../../components/Sharer';
 
-import {imageList} from '../../assets/imgs/imageList';
-
-import staticMovies from '../../assets/dictionary/movies.json';
 import {ScrollView} from 'react-native-gesture-handler';
 
 export default class Details extends React.Component {
@@ -34,32 +42,111 @@ export default class Details extends React.Component {
 
     this.state = {
       movieId: this.props.navigation.state.params.movieId,
+      refreshFunction: this.props.navigation.state.params.refreshFunction,
       movieInfo: null,
+
+      allowLike: false,
+      allowComment: false,
 
       liked: false,
     };
   }
 
   loadMovie = () => {
+    const user = SyncStorage.get('user');
     const {movieId} = this.state;
-    const movies = staticMovies.movies;
-    const filteredMovies = movies.filter(movie => movie._id === movieId);
-
-    if (filteredMovies.length) {
-      this.setState({
-        movieInfo: filteredMovies[0],
+    getMovie(movieId)
+      .then(movieFromBd => {
+        this.setState(
+          {
+            movieInfo: movieFromBd,
+          },
+          () => {
+            if (user) {
+              this.verifyUserLiked();
+            }
+          },
+        );
+      })
+      .catch(error => {
+        console.error('Erro ao carregar filme: ' + error);
       });
-    }
+  };
+
+  verifyUserLiked = () => {
+    const {movieId} = this.state;
+
+    getUserLiked(movieId)
+      .then(result => {
+        this.setState({liked: result.likes > 0});
+      })
+      .catch(error => {
+        console.error(
+          'erro ao verificar se o usuário deu like no filme: ' + error,
+        );
+      });
   };
 
   componentDidMount = () => {
+    const {allowComment, allowLike} = this.state;
+
+    likesAlive()
+      .then(result => {
+        if (result.alive === 'yes') {
+          this.setState({
+            allowLike: true,
+          });
+        } else {
+          this.setState(
+            {
+              allowLike: false,
+            },
+            () => {
+              Toast.show('Não é possível registrar likes agora :(', Toast.LONG);
+            },
+          );
+        }
+      })
+      .catch(error => {
+        console.error(
+          'Erro ao verificar a disponibilidade do serviço de likes: ' + error,
+        );
+      });
+
+    commentsAlive()
+      .then(result => {
+        if (result.alive === 'yes') {
+          this.setState({
+            allowComment: true,
+          });
+        } else {
+          this.setState(
+            {
+              allowComment: false,
+            },
+            () => {
+              Toast.show(
+                'Não é possível registrar comentários agora :(',
+                Toast.LONG,
+              );
+            },
+          );
+        }
+      })
+      .catch(error => {
+        console.error(
+          'Erro ao verificar a disponibilidade do serviço de comentários: ' +
+            error,
+        );
+      });
+
     this.loadMovie();
   };
 
   showSlides = movieId => {
-    const slide1 = imageList[`slide1_${movieId}`];
-    const slide2 = imageList[`slide2_${movieId}`];
-    const slide3 = imageList[`slide3_${movieId}`];
+    const slide1 = getSlideMovie(movieId, 1);
+    const slide2 = getSlideMovie(movieId, 2);
+    const slide3 = getSlideMovie(movieId, 3);
     const slides = [slide1, slide2, slide3];
 
     return (
@@ -82,34 +169,48 @@ export default class Details extends React.Component {
   };
 
   like = () => {
-    const {movieInfo} = this.state;
+    const {movieId, refreshFunction} = this.state;
 
-    movieInfo.likes++;
-
-    this.setState(
-      {
-        movieInfo: movieInfo,
-        liked: true,
-      },
-      () => {
-        Toast.show('Obrigado pelo seu feedbak!', Toast.LONG);
-      },
-    );
+    getUserLike(movieId)
+      .then(result => {
+        if (result.status === 'ok') {
+          this.loadMovie();
+          Toast.show('Obrigado pelo seu feedback!', Toast.LONG);
+          refreshFunction();
+        } else {
+          Toast.show(
+            'Ocorreu um erro ao registrar o like no filme, tente novamente mais tarde',
+            Toast.LONG,
+          );
+        }
+      })
+      .catch(error => {
+        console.error('erro ao registrar o like no filme: ' + error);
+      });
   };
 
   dislike = () => {
-    const {movieInfo} = this.state;
+    const {movieId, refreshFunction} = this.state;
 
-    movieInfo.likes--;
-
-    this.setState({
-      movieInfo: movieInfo,
-      liked: false,
-    });
+    getUserUnlike(movieId)
+      .then(result => {
+        if (result.status === 'ok') {
+          this.loadMovie();
+          refreshFunction();
+        } else {
+          Toast.show(
+            'Ocorreu um erro ao registrar o like no filme, tente novamente mais tarde',
+            Toast.LONG,
+          );
+        }
+      })
+      .catch(error => {
+        console.error('erro ao registrar o deslike no filme: ' + error);
+      });
   };
 
   render = () => {
-    const {movieInfo, liked} = this.state;
+    const {movieInfo, liked, allowLike, allowComment} = this.state;
     const user = SyncStorage.get('user');
 
     if (movieInfo) {
@@ -134,7 +235,7 @@ export default class Details extends React.Component {
               <CenteredOnTheSameLine>
                 <Sharer movieToShare={movieInfo} />
                 <HorizontalSpacer />
-                {liked && user && (
+                {allowLike && liked && user && (
                   <Icon
                     name="heart"
                     size={28}
@@ -144,7 +245,7 @@ export default class Details extends React.Component {
                     }}
                   />
                 )}
-                {!liked && user && (
+                {allowLike && !liked && user && (
                   <Icon
                     name="hearto"
                     size={28}
@@ -186,15 +287,13 @@ export default class Details extends React.Component {
                 </LeftOfTheSameLine>
                 <LeftOfTheSameLine>
                   <Property>{'Disponível em:    '}</Property>
-                  <Avatar
-                    source={imageList[`service_${movieInfo.service_id}`]}
-                  />
+                  <Avatar source={getImageService(movieInfo.service.avatar)} />
                 </LeftOfTheSameLine>
                 <VerticalSpacer />
                 <LeftOfTheSameLine>
                   <Property>{'Comentários: '}</Property>
                   <HorizontalSpacer />
-                  {user && (
+                  {allowComment && user && (
                     <Icon
                       name="message1"
                       size={18}

@@ -57,3 +57,6 @@ buck-out/
 
 # CocoaPods
 /ios/Pods/
+python-log.txt
+yarn.lock
+yarn.lock

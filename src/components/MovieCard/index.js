@@ -12,26 +12,28 @@ import {
   Likes,
 } from '../../assets/styles';
 
-import {imageList} from '../../assets/imgs/imageList';
+import {getImageService, getSkinMovie} from '../../api';
 
 export default class MovieCard extends React.Component {
   constructor(props) {
     super(props);
 
     this.state = {
-      feed: this.props.movieToShow,
+      movieInfo: this.props.movieToShow,
       navigator: this.props.navigator,
+      refreshFunction: this.props.refreshFunction,
     };
   }
 
   render = () => {
-    const {feed, navigator} = this.state;
+    const {movieInfo, navigator, refreshFunction} = this.state;
 
     return (
       <TouchableOpacity
         onPress={() => {
           navigator.navigate('Details', {
-            movieId: feed._id,
+            movieId: movieInfo._id,
+            refreshFunction,
           });
         }}>
         <View style={{backgroundColor: '#333444', flex: 1}}>
@@ -42,24 +44,24 @@ export default class MovieCard extends React.Component {
               borderWidth: 2,
               borderRadius: 15,
             }}>
-            <CardImage source={imageList[`capa_${feed._id}`]} />
+            <CardImage source={getSkinMovie(movieInfo.movie._id)} />
             <CardContent>
-              <MovieName>{feed.movie.name}</MovieName>
+              <MovieName>{movieInfo.movie.name}</MovieName>
             </CardContent>
             <CardContent>
-              <MovieDecription>{feed.movie.description}</MovieDecription>
+              <MovieDecription>{movieInfo.movie.description}</MovieDecription>
             </CardContent>
             <CardContent>
-              <Property>{feed.movie.genre} </Property>
+              <Property>{movieInfo.movie.genre} </Property>
               <LeftOfTheSameLine>
                 <Icon name="heart" size={18} color={'#b00'}>
-                  <Likes> {feed.likes}</Likes>
+                  <Likes> {movieInfo.likes}</Likes>
                 </Icon>
               </LeftOfTheSameLine>
             </CardContent>
             <CardContent>
               <LeftOfTheSameLine>
-                <Avatar source={imageList[`service_${feed.service_id}`]} />
+                <Avatar source={getImageService(movieInfo.service.avatar)} />
               </LeftOfTheSameLine>
             </CardContent>
           </Card>
